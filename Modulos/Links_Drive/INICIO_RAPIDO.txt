@@ -1,0 +1,114 @@
+================================================================================
+WEB SCRAPING DE GOOGLE DRIVE - INICIO RÁPIDO
+================================================================================
+
+📋 INSTALACIÓN (PRIMERA VEZ)
+================================================================================
+
+1. Instalar dependencias de Python:
+
+   pip install -r requirements.txt
+
+   O manualmente:
+
+   pip install selenium webdriver-manager pywin32
+
+
+2. Iniciar sesión en Drive (SOLO 1 VEZ):
+
+   Ejecutar: 1_Iniciar_Sesion_Drive.bat
+
+   - Se abrirá Chrome
+   - Iniciar sesión en Google
+   - Esperar 30 segundos
+   - La sesión se guardará automáticamente
+   - Cerrar Chrome cuando termine
+
+
+================================================================================
+💻 USO NORMAL
+================================================================================
+
+Para completar una certificación de HU:
+
+1. Ejecutar: 2_Completar_Certificacion_HU.bat
+
+2. Ingresar el número de HU cuando se solicite
+   Ejemplo: 273920
+
+3. El script automáticamente:
+   ✓ Buscará la carpeta "Evidencias HU273920" en Drive
+   ✓ Extraerá los links de todas las carpetas CP
+   ✓ Actualizará el Excel de certificación con los links
+
+
+================================================================================
+📁 ARCHIVOS PRINCIPALES
+================================================================================
+
+1_Iniciar_Sesion_Drive.bat          → Guardar sesión (ejecutar 1 vez)
+2_Completar_Certificacion_HU.bat    → Completar certificación de HU
+README.md                           → Documentación completa
+requirements.txt                    → Dependencias de Python
+
+
+================================================================================
+⚙️ CONFIGURACIÓN (OPCIONAL)
+================================================================================
+
+Si necesitas cambiar rutas o configuraciones:
+
+Editar: scripts\configuracion_drive.py
+
+Principales configuraciones:
+- RUTA_CERTIFICACIONES: Ubicación de tus archivos Excel
+- DRIVE_ROOT_URL: URL de tu carpeta principal de Drive
+- Tiempos de espera (ajustar según velocidad de internet)
+
+
+================================================================================
+🐛 PROBLEMAS COMUNES
+================================================================================
+
+"No se encontró la carpeta de HU en Drive"
+→ Verificar que existe "Evidencias HU{numero}" en Drive
+→ Verificar que la sesión esté guardada
+
+"No se encontró certificación para HU"
+→ Verificar que existe Certificación_QA_HU{numero}.xlsx
+→ Verificar que está en AyN, RyC o Transversal
+
+"Error al actualizar Excel"
+→ Cerrar el archivo Excel si está abierto
+→ Verificar permisos de escritura
+
+
+================================================================================
+✅ EJEMPLO COMPLETO
+================================================================================
+
+Primera vez:
+1. pip install -r requirements.txt
+2. Ejecutar: 1_Iniciar_Sesion_Drive.bat → Iniciar sesión
+3. Ejecutar: 2_Completar_Certificacion_HU.bat → Ingresar HU
+
+Próximas veces:
+1. Ejecutar: 2_Completar_Certificacion_HU.bat → Ingresar HU
+
+¡Listo! ✓
+
+
+================================================================================
+📚 MÁS INFORMACIÓN
+================================================================================
+
+Para documentación completa, ver: README.md
+
+Para soporte técnico o modificaciones:
+- Revisar scripts\configuracion_drive.py
+- Revisar scripts\completar_certificacion_interactivo.py
+
+
+Fecha: 2026-01-03
+Versión: 1.0
+================================================================================

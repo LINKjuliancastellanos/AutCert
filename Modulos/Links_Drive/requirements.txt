@@ -1,0 +1,6 @@
+# Dependencias de Python para Web Scraping de Google Drive
+# Instalar con: pip install -r requirements.txt
+
+selenium>=4.0.0
+webdriver-manager>=3.8.0
+pywin32>=305

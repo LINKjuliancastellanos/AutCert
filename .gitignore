@@ -1,0 +1,39 @@
+# ============================================
+# .gitignore - AutCert
+# ============================================
+
+# Cache de Selenium (perfiles de Chrome)
+**/datos/cache/
+**/selenium_profile/
+
+# Logs
+Logs/
+**/logs/
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Archivos temporales de Excel
+~$*.xlsx
+*.tmp
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Carpeta de salida PDF (se genera)
+Certificaciones_PDF/
+
+# IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de Claude (configuracion local)
+.claude/
