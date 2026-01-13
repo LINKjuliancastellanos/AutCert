@@ -211,8 +211,10 @@ def buscar_excel_certificacion(numero_hu):
     categorias = ['AyN', 'RyC', 'Transversal']
 
     for cat in categorias:
-        ruta = os.path.join(RUTA_CERTIFICACIONES, cat, f"Certificación_QA_HU{numero_hu}.xlsx")
+        # Formato correcto: Certificacion_QA_{numero}.xlsx (sin acento, con guión bajo)
+        ruta = os.path.join(RUTA_CERTIFICACIONES, cat, f"Certificacion_QA_{numero_hu}.xlsx")
         if os.path.exists(ruta):
+            log(f"✓ Certificación encontrada en: {cat}/")
             return ruta
 
     return None

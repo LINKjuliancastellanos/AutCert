@@ -10,19 +10,27 @@ WEB SCRAPING DE GOOGLE DRIVE - INICIO RÁPIDO
    pip install -r requirements.txt
 
    O manualmente:
-
    pip install selenium webdriver-manager pywin32
 
 
 2. Iniciar sesión en Drive (SOLO 1 VEZ):
 
-   Ejecutar: 1_Iniciar_Sesion_Drive.bat
+   Ejecutar: 1_Iniciar_Sesion.bat
 
-   - Se abrirá Chrome
-   - Iniciar sesión en Google
-   - Esperar 30 segundos
-   - La sesión se guardará automáticamente
-   - Cerrar Chrome cuando termine
+   ✓ NO necesitas cerrar tu Chrome actual
+   ✓ Abre un Chrome completamente separado (como modo invitado)
+   ✓ NO interfiere con tus sesiones activas del navegador
+   ✓ Perfil 100% aislado solo para Drive
+   ✓ 120 segundos (2 minutos) para iniciar sesión cómodamente
+
+   Pasos:
+   - Se abrirá un Chrome independiente (sin tus sesiones actuales)
+   - Iniciar sesión en Google manualmente
+   - Navegar a drive.google.com
+   - Ir a tu carpeta de evidencias
+   - Esperar 2 minutos (el script cuenta automáticamente)
+   - La sesión se guardará en un perfil aislado
+   - Chrome se cierra cuando termine
 
 
 ================================================================================
@@ -31,7 +39,7 @@ WEB SCRAPING DE GOOGLE DRIVE - INICIO RÁPIDO
 
 Para completar una certificación de HU:
 
-1. Ejecutar: 2_Completar_Certificacion_HU.bat
+1. Ejecutar: 2_Completar_HU.bat
 
 2. Ingresar el número de HU cuando se solicite
    Ejemplo: 273920
@@ -46,10 +54,11 @@ Para completar una certificación de HU:
 📁 ARCHIVOS PRINCIPALES
 ================================================================================
 
-1_Iniciar_Sesion_Drive.bat          → Guardar sesión (ejecutar 1 vez)
-2_Completar_Certificacion_HU.bat    → Completar certificación de HU
-README.md                           → Documentación completa
-requirements.txt                    → Dependencias de Python
+1_Iniciar_Sesion.bat         → Guardar sesión (ejecutar 1 vez - 120 seg)
+2_Completar_HU.bat           → Completar certificación de HU
+LIMPIAR_PERFIL_CHROME.bat    → Limpiar perfil si hay problemas
+INICIO_RAPIDO.txt            → Esta guía rápida
+requirements.txt             → Dependencias de Python
 
 
 ================================================================================
@@ -61,7 +70,6 @@ Si necesitas cambiar rutas o configuraciones:
 Editar: scripts\configuracion_drive.py
 
 Principales configuraciones:
-- RUTA_CERTIFICACIONES: Ubicación de tus archivos Excel
 - DRIVE_ROOT_URL: URL de tu carpeta principal de Drive
 - Tiempos de espera (ajustar según velocidad de internet)
 
@@ -70,13 +78,20 @@ Principales configuraciones:
 🐛 PROBLEMAS COMUNES
 ================================================================================
 
+"ERR_INVALID_ARGUMENT" o "SessionNotCreatedException":
+→ El perfil aislado ahora evita estos errores automáticamente
+→ NO necesitas cerrar Chrome
+→ Si persiste:
+  1. Ejecuta: LIMPIAR_PERFIL_CHROME.bat
+  2. Ejecuta: 1_Iniciar_Sesion.bat
+
 "No se encontró la carpeta de HU en Drive"
-→ Verificar que existe "Evidencias HU{numero}" en Drive
+→ Verificar que existe "Evidencias HU{numero}" en Drive (formato exacto)
 → Verificar que la sesión esté guardada
 
 "No se encontró certificación para HU"
-→ Verificar que existe Certificación_QA_HU{numero}.xlsx
-→ Verificar que está en AyN, RyC o Transversal
+→ Verificar que existe Certificacion_QA_{numero}.xlsx
+→ Verificar que está en EntregaCerts/Certificaciones/AyN, RyC o Transversal
 
 "Error al actualizar Excel"
 → Cerrar el archivo Excel si está abierto
@@ -89,26 +104,44 @@ Principales configuraciones:
 
 Primera vez:
 1. pip install -r requirements.txt
-2. Ejecutar: 1_Iniciar_Sesion_Drive.bat → Iniciar sesión
-3. Ejecutar: 2_Completar_Certificacion_HU.bat → Ingresar HU
+2. Ejecutar: 1_Iniciar_Sesion.bat → Iniciar sesión (120 seg)
+   (NO necesitas cerrar tu Chrome actual)
+3. Ejecutar: 2_Completar_HU.bat → Ingresar HU
 
 Próximas veces:
-1. Ejecutar: 2_Completar_Certificacion_HU.bat → Ingresar HU
+1. Ejecutar: 2_Completar_HU.bat → Ingresar HU
+
+Si hay problemas:
+1. Ejecutar: LIMPIAR_PERFIL_CHROME.bat → Limpiar perfil
+2. Ejecutar: 1_Iniciar_Sesion.bat → Reiniciar sesión
 
 ¡Listo! ✓
+
+
+================================================================================
+🔒 MODO AISLADO
+================================================================================
+
+El sistema ahora usa un "perfil aislado" para Chrome:
+
+• ¿Qué es? → Un Chrome completamente separado de tu Chrome personal
+• ¿Por qué? → Evita conflictos y errores como ERR_INVALID_ARGUMENT
+• ¿Ventajas? → NO necesitas cerrar tu Chrome actual para usar el script
+• ¿Seguro? → Tu sesión personal de Chrome NO es accedida por el script
+
+Tu Chrome personal y el Chrome del script pueden estar abiertos al mismo tiempo
+sin ningún problema.
 
 
 ================================================================================
 📚 MÁS INFORMACIÓN
 ================================================================================
 
-Para documentación completa, ver: README.md
-
 Para soporte técnico o modificaciones:
 - Revisar scripts\configuracion_drive.py
 - Revisar scripts\completar_certificacion_interactivo.py
 
 
-Fecha: 2026-01-03
-Versión: 1.0
+Fecha: 2026-01-13
+Versión: 2.0 - Modo Aislado
 ================================================================================

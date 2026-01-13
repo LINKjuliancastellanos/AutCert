@@ -99,26 +99,35 @@ def get_chrome_options():
     # Crear directorio de perfil si no existe
     os.makedirs(SELENIUM_PROFILE_DIR, exist_ok=True)
 
-    # Usar perfil dedicado
-    chrome_options.add_argument(f"user-data-dir={SELENIUM_PROFILE_DIR}")
+    # CRÍTICO: Usar perfil aislado para evitar conflictos con Chrome del sistema
+    chrome_options.add_argument(f"--user-data-dir={SELENIUM_PROFILE_DIR}")
+    chrome_options.add_argument("--profile-directory=SeleniumProfile")
 
-    # Opciones básicas
+    # Evitar detección como automatización
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
 
+    # Configuraciones para evitar conflictos con Chrome del sistema
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--no-default-browser-check")
+
+    # Preferencias para evitar popups
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2
+    }
+    chrome_options.add_experimental_option("prefs", prefs)
+
     # Opciones configurables
     if CHROME_OPTIONS['headless']:
         chrome_options.add_argument("--headless")
-
-    if not CHROME_OPTIONS['sandbox']:
-        chrome_options.add_argument("--no-sandbox")
-
-    if not CHROME_OPTIONS['dev_shm']:
-        chrome_options.add_argument("--disable-dev-shm-usage")
-
-    if CHROME_OPTIONS['remote_debug']:
-        chrome_options.add_argument("--remote-debugging-port=9222")
 
     return chrome_options
 
@@ -131,8 +140,11 @@ def asegurar_directorios():
 
 def verificar_sesion_guardada():
     """Verifica si existe una sesión guardada de Chrome"""
-    # Buscar archivos de sesión de Chrome
+    # Buscar archivos de sesión de Chrome en el perfil aislado
     archivos_sesion = [
+        os.path.join(SELENIUM_PROFILE_DIR, "SeleniumProfile", "Cookies"),
+        os.path.join(SELENIUM_PROFILE_DIR, "SeleniumProfile", "Preferences"),
+        # También verificar en Default por compatibilidad con versiones antiguas
         os.path.join(SELENIUM_PROFILE_DIR, "Default", "Cookies"),
         os.path.join(SELENIUM_PROFILE_DIR, "Default", "Preferences"),
     ]

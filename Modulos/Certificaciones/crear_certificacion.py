@@ -11,12 +11,19 @@ import csv
 import re
 from pathlib import Path
 
-# Rutas base
+# Obtener la raíz del proyecto AutCert (2 niveles arriba: Certificaciones -> Modulos -> AutCert)
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
+
+# Añadir la raíz del proyecto al path para importar config_paths
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Importar configuración centralizada de rutas
+from config_paths import CERTIFICACIONES_ROOT, CSV_PATH
+
+# Formato original (dentro del proyecto)
 FORMATO_ORIGINAL = PROJECT_ROOT / "Assets" / "Formatos" / "Formato Oficial.xlsx"
-CERTIFICACIONES_ROOT = PROJECT_ROOT / "Certificaciones"
-CSV_PATH = PROJECT_ROOT / "Assets" / "Base de datos" / "data.csv"
 
 
 def determinar_carpeta_modulo(modulo_balu: str) -> str:
