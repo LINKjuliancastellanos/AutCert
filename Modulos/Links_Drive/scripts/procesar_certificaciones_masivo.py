@@ -144,42 +144,67 @@ class ProcesadorMasivo:
         self.driver.get(DRIVE_ROOT_URL)
         time.sleep(TIEMPO_CARGA_PAGINA)
 
-    def scroll_cargar_todo(self, max_intentos=15):
-        """Scroll para cargar todos los elementos"""
+    def scroll_cargar_todo(self, max_intentos=30):
+        """Scroll agresivo para cargar todos los elementos en Google Drive"""
         elementos_anteriores = 0
         intentos_sin_cambio = 0
+        max_sin_cambio = 8  # Mas intentos antes de rendirse
 
         for i in range(max_intentos):
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(0.5)
-
+            # Metodo 1: Scroll en el contenedor principal de Drive
             try:
-                body = self.driver.find_element(By.TAG_NAME, "body")
-                body.send_keys(Keys.PAGE_DOWN)
-                body.send_keys(Keys.PAGE_DOWN)
+                # Buscar el contenedor scrolleable de Drive
+                contenedor = self.driver.find_element(By.CSS_SELECTOR, "div.WYuW0e")
+                self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", contenedor)
             except:
                 pass
 
+            time.sleep(0.3)
+
+            # Metodo 2: Enviar teclas PAGE_DOWN multiples veces
+            try:
+                body = self.driver.find_element(By.TAG_NAME, "body")
+                for _ in range(3):
+                    body.send_keys(Keys.PAGE_DOWN)
+                    time.sleep(0.2)
+            except:
+                pass
+
+            # Metodo 3: Scroll con JavaScript en window
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
             time.sleep(TIEMPO_SCROLL)
 
-            elementos_actuales = len(self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]"))
+            # Contar elementos con data-tooltip que contengan "CP"
+            elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
+            elementos_cp = [e for e in elementos if 'CP' in (e.get_attribute('data-tooltip') or '')]
+            elementos_actuales = len(elementos_cp)
 
             if elementos_actuales == elementos_anteriores:
                 intentos_sin_cambio += 1
-                if intentos_sin_cambio >= INTENTOS_SIN_CAMBIO:
+                if intentos_sin_cambio >= max_sin_cambio:
                     break
             else:
                 intentos_sin_cambio = 0
 
             elementos_anteriores = elementos_actuales
 
+        # Volver arriba
         self.driver.execute_script("window.scrollTo(0, 0);")
+        try:
+            contenedor = self.driver.find_element(By.CSS_SELECTOR, "div.WYuW0e")
+            self.driver.execute_script("arguments[0].scrollTop = 0", contenedor)
+        except:
+            pass
+
         time.sleep(0.5)
 
         return elementos_actuales
 
-    def buscar_carpeta_hu(self, numero_hu):
-        """Busca la carpeta de una HU en Drive"""
+    def buscar_y_entrar_carpeta_hu(self, numero_hu):
+        """Busca la carpeta de una HU en Drive y entra haciendo doble clic"""
+        from selenium.webdriver.common.action_chains import ActionChains
+
         try:
             # Buscar caja de busqueda
             search_box = None
@@ -201,7 +226,7 @@ class ProcesadorMasivo:
                     continue
 
             if not search_box:
-                return None
+                return False
 
             # Limpiar y buscar
             search_box.click()
@@ -213,27 +238,37 @@ class ProcesadorMasivo:
             search_box.send_keys(Keys.RETURN)
             time.sleep(TIEMPO_BUSQUEDA)
 
-            # Buscar carpeta
+            # Buscar carpeta y hacer doble clic para entrar
             elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
 
             for elem in elementos:
                 try:
                     tooltip = elem.get_attribute('data-tooltip')
                     if tooltip and f"Evidencias HU{numero_hu}" in tooltip and "Carpeta" in tooltip:
-                        data_id = elem.get_attribute("data-id")
-                        if data_id:
-                            return f"https://drive.google.com/drive/folders/{data_id}"
+                        # Hacer doble clic para entrar a la carpeta
+                        actions = ActionChains(self.driver)
+                        actions.double_click(elem).perform()
+                        time.sleep(TIEMPO_CARGA_PAGINA + 2)
+                        return True
                 except:
                     continue
 
-            return None
+            return False
 
         except Exception as e:
-            return None
+            return False
 
     def extraer_cps_de_carpeta(self):
         """Extrae todas las carpetas CP con sus links"""
-        self.scroll_cargar_todo(max_intentos=12)
+        # Scroll muy agresivo para cargar todas las CPs
+        total_cps = self.scroll_cargar_todo(max_intentos=30)
+
+        # Esperar a que se estabilice
+        time.sleep(2)
+
+        # Hacer un segundo pase de scroll por si acaso
+        self.scroll_cargar_todo(max_intentos=10)
+        time.sleep(1)
 
         elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
         cps = {}
@@ -325,10 +360,10 @@ class ProcesadorMasivo:
             # Volver a Drive raiz para buscar
             self.navegar_a_drive()
 
-            # Buscar carpeta HU
-            url_hu = self.buscar_carpeta_hu(numero_hu)
+            # Buscar carpeta HU y entrar con doble clic
+            entro = self.buscar_y_entrar_carpeta_hu(numero_hu)
 
-            if not url_hu:
+            if not entro:
                 return {
                     'numero_hu': numero_hu,
                     'categoria': cert['categoria'],
@@ -337,11 +372,7 @@ class ProcesadorMasivo:
                     'links_agregados': 0
                 }
 
-            # Navegar a carpeta HU
-            self.driver.get(url_hu)
-            time.sleep(TIEMPO_CARGA_PAGINA)
-
-            # Extraer CPs
+            # Ya estamos dentro de la carpeta, extraer CPs
             cps_links = self.extraer_cps_de_carpeta()
 
             if len(cps_links) == 0:
