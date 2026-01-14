@@ -1,8 +1,8 @@
 ================================================================================
-WEB SCRAPING DE GOOGLE DRIVE - INICIO RÁPIDO
+WEB SCRAPING DE GOOGLE DRIVE - INICIO RAPIDO
 ================================================================================
 
-📋 INSTALACIÓN (PRIMERA VEZ)
+INSTALACION (PRIMERA VEZ)
 ================================================================================
 
 1. Instalar dependencias de Python:
@@ -10,82 +10,105 @@ WEB SCRAPING DE GOOGLE DRIVE - INICIO RÁPIDO
    pip install -r requirements.txt
 
    O manualmente:
-   pip install selenium webdriver-manager pywin32
+   pip install selenium webdriver-manager pywin32 playwright
 
+2. Instalar navegador de Playwright (RECOMENDADO):
 
-2. Iniciar sesión en Drive (SOLO 1 VEZ):
+   playwright install chromium
 
+3. Iniciar sesion en Drive (SOLO 1 VEZ):
+
+   OPCION A - Playwright (RECOMENDADO):
+   Ejecutar: 7_Iniciar_Sesion_Playwright.bat
+
+   OPCION B - Selenium (alternativa):
    Ejecutar: 1_Iniciar_Sesion.bat
 
-   ✓ NO necesitas cerrar tu Chrome actual
-   ✓ Abre un Chrome completamente separado (como modo invitado)
-   ✓ NO interfiere con tus sesiones activas del navegador
-   ✓ Perfil 100% aislado solo para Drive
-   ✓ 120 segundos (2 minutos) para iniciar sesión cómodamente
+   - NO necesitas cerrar tu Chrome actual
+   - Abre un Chrome completamente separado (como modo invitado)
+   - NO interfiere con tus sesiones activas del navegador
+   - Perfil 100% aislado solo para Drive
+   - 120 segundos (2 minutos) para iniciar sesion comodamente
 
    Pasos:
-   - Se abrirá un Chrome independiente (sin tus sesiones actuales)
-   - Iniciar sesión en Google manualmente
+   - Se abrira un Chrome independiente (sin tus sesiones actuales)
+   - Iniciar sesion en Google manualmente
    - Navegar a drive.google.com
    - Ir a tu carpeta de evidencias
-   - Esperar 2 minutos (el script cuenta automáticamente)
-   - La sesión se guardará en un perfil aislado
+   - Esperar 2 minutos (el script cuenta automaticamente)
+   - La sesion se guardara en un perfil aislado
    - Chrome se cierra cuando termine
 
 
 ================================================================================
-💻 USO NORMAL (UNA HU)
+USO NORMAL (UNA HU)
 ================================================================================
 
-Para completar una certificación de HU:
+Para completar una certificacion de HU:
 
+OPCION A - Playwright (RECOMENDADO):
+1. Ejecutar: 6_Completar_HU_Playwright.bat
+
+OPCION B - Selenium:
 1. Ejecutar: 2_Completar_HU.bat
 
-2. Ingresar el número de HU cuando se solicite
+2. Ingresar el numero de HU cuando se solicite
    Ejemplo: 273920
 
-3. El script automáticamente:
-   ✓ Buscará la carpeta "Evidencias HU273920" en Drive
-   ✓ Extraerá los links de todas las carpetas CP
-   ✓ Actualizará el Excel de certificación con los links
+3. El script automaticamente:
+   - Buscara la carpeta "Evidencias HU273920" en Drive
+   - Extraera los links de todas las carpetas CP
+   - Actualizara el Excel de certificacion con los links
 
 
 ================================================================================
-🚀 PROCESAMIENTO MASIVO (TODAS LAS HUs)
+PROCESAMIENTO MASIVO (TODAS LAS HUs)
 ================================================================================
 
 Para procesar TODAS las certificaciones de una vez:
 
 1. OPCIONAL: Ejecutar: 4_Verificar_Estado.bat
-   → Muestra cuántas certificaciones tienen links y cuántas faltan
+   -> Muestra cuantas certificaciones tienen links y cuantas faltan
 
+OPCION A - Playwright (RECOMENDADO):
+2. Ejecutar: 5_Procesar_Masivo_Playwright.bat
+
+OPCION B - Selenium:
 2. Ejecutar: 3_Procesar_Masivo.bat
 
-3. El script automáticamente:
-   ✓ Escanea TODAS las certificaciones en AyN, RyC y Transversal
-   ✓ Procesa cada una secuencialmente
-   ✓ Muestra barra de progreso en tiempo real
-   ✓ Genera reporte JSON al finalizar
+3. El script automaticamente:
+   - Escanea TODAS las certificaciones en AyN, RyC y Transversal
+   - Procesa cada una secuencialmente
+   - Muestra barra de progreso en tiempo real
+   - Genera reporte JSON al finalizar
 
 4. OPCIONAL: Ejecutar: 4_Verificar_Estado.bat
-   → Verifica cuántas quedaron completas después del proceso
+   -> Verifica cuantas quedaron completas despues del proceso
 
 
 ================================================================================
-📁 ARCHIVOS PRINCIPALES
+ARCHIVOS PRINCIPALES
 ================================================================================
 
-1_Iniciar_Sesion.bat         → Guardar sesión (ejecutar 1 vez - 120 seg)
-2_Completar_HU.bat           → Completar certificación de UNA HU
-3_Procesar_Masivo.bat        → Procesar TODAS las certificaciones (NUEVO)
-4_Verificar_Estado.bat       → Ver estado de completitud (NUEVO)
-LIMPIAR_PERFIL_CHROME.bat    → Limpiar perfil si hay problemas
-INICIO_RAPIDO.txt            → Esta guía rápida
-requirements.txt             → Dependencias de Python
+PLAYWRIGHT (RECOMENDADO):
+7_Iniciar_Sesion_Playwright.bat  -> Guardar sesion Playwright (ejecutar 1 vez)
+6_Completar_HU_Playwright.bat    -> Completar UNA HU con Playwright
+5_Procesar_Masivo_Playwright.bat -> Procesar TODAS las HUs con Playwright
+
+SELENIUM (ALTERNATIVA):
+1_Iniciar_Sesion.bat         -> Guardar sesion Selenium (ejecutar 1 vez)
+2_Completar_HU.bat           -> Completar certificacion de UNA HU
+3_Procesar_Masivo.bat        -> Procesar TODAS las certificaciones
+
+UTILIDADES:
+4_Verificar_Estado.bat       -> Ver estado de completitud
+LIMPIAR_PERFIL_CHROME.bat    -> Limpiar perfil si hay problemas
+INICIO_RAPIDO.txt            -> Esta guia rapida
+requirements.txt             -> Dependencias de Python
 
 
 ================================================================================
-⚙️ CONFIGURACIÓN (OPCIONAL)
+CONFIGURACION (OPCIONAL)
 ================================================================================
 
 Si necesitas cambiar rutas o configuraciones:
@@ -94,77 +117,99 @@ Editar: scripts\configuracion_drive.py
 
 Principales configuraciones:
 - DRIVE_ROOT_URL: URL de tu carpeta principal de Drive
-- Tiempos de espera (ajustar según velocidad de internet)
+- Tiempos de espera (ajustar segun velocidad de internet)
 
 
 ================================================================================
-🐛 PROBLEMAS COMUNES
+PROBLEMAS COMUNES
 ================================================================================
+
+"Playwright no esta instalado":
+-> Ejecuta: pip install playwright
+-> Ejecuta: playwright install chromium
 
 "ERR_INVALID_ARGUMENT" o "SessionNotCreatedException":
-→ El perfil aislado ahora evita estos errores automáticamente
-→ NO necesitas cerrar Chrome
-→ Si persiste:
+-> El perfil aislado ahora evita estos errores automaticamente
+-> NO necesitas cerrar Chrome
+-> Si persiste:
   1. Ejecuta: LIMPIAR_PERFIL_CHROME.bat
-  2. Ejecuta: 1_Iniciar_Sesion.bat
+  2. Ejecuta: 7_Iniciar_Sesion_Playwright.bat (o 1_Iniciar_Sesion.bat)
 
-"No se encontró la carpeta de HU en Drive"
-→ Verificar que existe "Evidencias HU{numero}" en Drive (formato exacto)
-→ Verificar que la sesión esté guardada
+"No se encontro la carpeta de HU en Drive"
+-> Verificar que existe "Evidencias HU{numero}" en Drive (formato exacto)
+-> Verificar que la sesion este guardada
 
-"No se encontró certificación para HU"
-→ Verificar que existe Certificacion_QA_{numero}.xlsx
-→ Verificar que está en EntregaCerts/Certificaciones/AyN, RyC o Transversal
+"No se encontro certificacion para HU"
+-> Verificar que existe Certificacion_QA_{numero}.xlsx
+-> Verificar que esta en EntregaCerts/Certificaciones/AyN, RyC o Transversal
 
 "Error al actualizar Excel"
-→ Cerrar el archivo Excel si está abierto
-→ Verificar permisos de escritura
+-> Cerrar el archivo Excel si esta abierto
+-> Verificar permisos de escritura
 
 
 ================================================================================
-✅ EJEMPLO COMPLETO
+EJEMPLO COMPLETO (PLAYWRIGHT - RECOMENDADO)
 ================================================================================
 
 Primera vez:
 1. pip install -r requirements.txt
-2. Ejecutar: 1_Iniciar_Sesion.bat → Iniciar sesión (120 seg)
+2. playwright install chromium
+3. Ejecutar: 7_Iniciar_Sesion_Playwright.bat -> Iniciar sesion (120 seg)
    (NO necesitas cerrar tu Chrome actual)
-3. Ejecutar: 2_Completar_HU.bat → Ingresar HU
+4. Ejecutar: 6_Completar_HU_Playwright.bat -> Ingresar HU
 
-Próximas veces:
-1. Ejecutar: 2_Completar_HU.bat → Ingresar HU
+Proximas veces:
+1. Ejecutar: 6_Completar_HU_Playwright.bat -> Ingresar HU
+
+Para procesamiento masivo:
+1. Ejecutar: 5_Procesar_Masivo_Playwright.bat -> Procesa todas las HUs
 
 Si hay problemas:
-1. Ejecutar: LIMPIAR_PERFIL_CHROME.bat → Limpiar perfil
-2. Ejecutar: 1_Iniciar_Sesion.bat → Reiniciar sesión
+1. Eliminar carpeta: datos/cache/playwright_profile
+2. Ejecutar: 7_Iniciar_Sesion_Playwright.bat -> Reiniciar sesion
 
-¡Listo! ✓
+Listo!
 
 
 ================================================================================
-🔒 MODO AISLADO
+MODO AISLADO
 ================================================================================
 
-El sistema ahora usa un "perfil aislado" para Chrome:
+El sistema usa un "perfil aislado" para Chrome (tanto Playwright como Selenium):
 
-• ¿Qué es? → Un Chrome completamente separado de tu Chrome personal
-• ¿Por qué? → Evita conflictos y errores como ERR_INVALID_ARGUMENT
-• ¿Ventajas? → NO necesitas cerrar tu Chrome actual para usar el script
-• ¿Seguro? → Tu sesión personal de Chrome NO es accedida por el script
+- Que es? -> Un Chrome completamente separado de tu Chrome personal
+- Por que? -> Evita conflictos y errores como ERR_INVALID_ARGUMENT
+- Ventajas? -> NO necesitas cerrar tu Chrome actual para usar el script
+- Seguro? -> Tu sesion personal de Chrome NO es accedida por el script
 
 Tu Chrome personal y el Chrome del script pueden estar abiertos al mismo tiempo
-sin ningún problema.
+sin ningun problema.
 
 
 ================================================================================
-📚 MÁS INFORMACIÓN
+POR QUE USAR PLAYWRIGHT?
 ================================================================================
 
-Para soporte técnico o modificaciones:
+Playwright es RECOMENDADO porque:
+- Mejor manejo del scroll en Google Drive (carga lazy loading)
+- Mas estable y menos errores de conexion
+- Mejor deteccion de elementos dinamicos
+- No requiere descargar ChromeDriver manualmente
+
+Selenium sigue disponible como alternativa si hay problemas con Playwright.
+
+
+================================================================================
+MAS INFORMACION
+================================================================================
+
+Para soporte tecnico o modificaciones:
 - Revisar scripts\configuracion_drive.py
-- Revisar scripts\completar_certificacion_interactivo.py
+- Revisar scripts\completar_hu_playwright.py
+- Revisar scripts\procesar_certificaciones_playwright.py
 
 
-Fecha: 2026-01-13
-Versión: 3.0 - Procesamiento Masivo
+Fecha: 2026-01-14
+Version: 4.0 - Soporte Playwright
 ================================================================================
