@@ -144,16 +144,18 @@ class ProcesadorMasivo:
         self.driver.get(DRIVE_ROOT_URL)
         time.sleep(TIEMPO_CARGA_PAGINA)
 
-    def scroll_cargar_todo(self, max_intentos=30):
-        """Scroll agresivo para cargar todos los elementos en Google Drive"""
+    def scroll_cargar_todo(self, total_esperado=0, max_intentos=50):
+        """
+        Scroll agresivo para cargar todos los elementos en Google Drive.
+        Si total_esperado > 0, sigue haciendo scroll hasta encontrar esa cantidad.
+        """
         elementos_anteriores = 0
         intentos_sin_cambio = 0
-        max_sin_cambio = 8  # Mas intentos antes de rendirse
+        max_sin_cambio = 10  # Mas intentos antes de rendirse
 
         for i in range(max_intentos):
             # Metodo 1: Scroll en el contenedor principal de Drive
             try:
-                # Buscar el contenedor scrolleable de Drive
                 contenedor = self.driver.find_element(By.CSS_SELECTOR, "div.WYuW0e")
                 self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", contenedor)
             except:
@@ -164,14 +166,18 @@ class ProcesadorMasivo:
             # Metodo 2: Enviar teclas PAGE_DOWN multiples veces
             try:
                 body = self.driver.find_element(By.TAG_NAME, "body")
-                for _ in range(3):
+                for _ in range(5):  # Mas PAGE_DOWN
                     body.send_keys(Keys.PAGE_DOWN)
-                    time.sleep(0.2)
+                    time.sleep(0.15)
             except:
                 pass
 
-            # Metodo 3: Scroll con JavaScript en window
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            # Metodo 3: Scroll con END key
+            try:
+                body = self.driver.find_element(By.TAG_NAME, "body")
+                body.send_keys(Keys.END)
+            except:
+                pass
 
             time.sleep(TIEMPO_SCROLL)
 
@@ -180,9 +186,17 @@ class ProcesadorMasivo:
             elementos_cp = [e for e in elementos if 'CP' in (e.get_attribute('data-tooltip') or '')]
             elementos_actuales = len(elementos_cp)
 
+            # Si tenemos un objetivo y lo alcanzamos, terminamos
+            if total_esperado > 0 and elementos_actuales >= total_esperado:
+                break
+
             if elementos_actuales == elementos_anteriores:
                 intentos_sin_cambio += 1
-                if intentos_sin_cambio >= max_sin_cambio:
+                # Si no hay objetivo, usamos el criterio de sin cambios
+                if total_esperado == 0 and intentos_sin_cambio >= max_sin_cambio:
+                    break
+                # Si hay objetivo pero no avanzamos, seguimos intentando mas
+                if total_esperado > 0 and intentos_sin_cambio >= (max_sin_cambio * 2):
                     break
             else:
                 intentos_sin_cambio = 0
@@ -258,16 +272,62 @@ class ProcesadorMasivo:
         except Exception as e:
             return False
 
-    def extraer_cps_de_carpeta(self):
+    def contar_tcs_en_excel(self, ruta_excel):
+        """Cuenta cuantos Test Cases hay en el Excel"""
+        try:
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.DisplayAlerts = False
+            excel.Visible = False
+
+            workbook = excel.Workbooks.Open(ruta_excel)
+            worksheet = workbook.Worksheets(1)
+
+            total_tcs = 0
+            fila = 21
+
+            while True:
+                tc_id = worksheet.Cells(fila, 3).Value
+
+                if tc_id is None:
+                    break
+
+                tc_id_str = str(tc_id).strip()
+
+                try:
+                    if '.' in tc_id_str and tc_id_str.replace('.', '').isdigit():
+                        tc_id_str = str(int(float(tc_id_str)))
+                except:
+                    pass
+
+                if len(tc_id_str) > 10 or "CONCLUSION" in tc_id_str.upper():
+                    break
+
+                total_tcs += 1
+                fila += 1
+
+            workbook.Close(False)
+            excel.Quit()
+
+            return total_tcs
+
+        except Exception as e:
+            try:
+                workbook.Close(False)
+                excel.Quit()
+            except:
+                pass
+            return 0
+
+    def extraer_cps_de_carpeta(self, total_esperado=0):
         """Extrae todas las carpetas CP con sus links"""
-        # Scroll muy agresivo para cargar todas las CPs
-        total_cps = self.scroll_cargar_todo(max_intentos=30)
+        # Scroll hasta encontrar todos los CPs esperados
+        self.scroll_cargar_todo(total_esperado=total_esperado, max_intentos=50)
 
         # Esperar a que se estabilice
         time.sleep(2)
 
-        # Hacer un segundo pase de scroll por si acaso
-        self.scroll_cargar_todo(max_intentos=10)
+        # Segundo pase de scroll para asegurar
+        self.scroll_cargar_todo(total_esperado=total_esperado, max_intentos=20)
         time.sleep(1)
 
         elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
@@ -357,6 +417,9 @@ class ProcesadorMasivo:
         numero_hu = cert['numero_hu']
 
         try:
+            # Primero contar cuantos TCs tiene el Excel para saber cuantos CPs buscar
+            total_tcs = self.contar_tcs_en_excel(cert['ruta'])
+
             # Volver a Drive raiz para buscar
             self.navegar_a_drive()
 
@@ -372,16 +435,17 @@ class ProcesadorMasivo:
                     'links_agregados': 0
                 }
 
-            # Ya estamos dentro de la carpeta, extraer CPs
-            cps_links = self.extraer_cps_de_carpeta()
+            # Ya estamos dentro de la carpeta, extraer CPs (pasando el total esperado)
+            cps_links = self.extraer_cps_de_carpeta(total_esperado=total_tcs)
 
             if len(cps_links) == 0:
                 return {
                     'numero_hu': numero_hu,
                     'categoria': cert['categoria'],
                     'estado': 'SIN_CPS',
-                    'mensaje': 'No se encontraron carpetas CP',
-                    'links_agregados': 0
+                    'mensaje': f'No se encontraron CPs (esperados: {total_tcs})',
+                    'links_agregados': 0,
+                    'tcs_esperados': total_tcs
                 }
 
             # Actualizar Excel
@@ -392,9 +456,10 @@ class ProcesadorMasivo:
                     'numero_hu': numero_hu,
                     'categoria': cert['categoria'],
                     'estado': 'OK',
-                    'mensaje': f"{resultado['completados']} links, {resultado['no_encontrados']} sin match",
+                    'mensaje': f"{resultado['completados']}/{total_tcs} links ({len(cps_links)} CPs en Drive)",
                     'links_agregados': resultado['completados'],
-                    'cps_encontradas': len(cps_links)
+                    'cps_encontradas': len(cps_links),
+                    'tcs_esperados': total_tcs
                 }
             else:
                 return {
