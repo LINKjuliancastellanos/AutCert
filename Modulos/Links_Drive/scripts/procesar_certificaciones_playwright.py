@@ -1,14 +1,14 @@
 """
-PROCESAMIENTO MASIVO DE CERTIFICACIONES
-=========================================
-Script batch que procesa TODAS las certificaciones de forma automatica:
+PROCESAMIENTO MASIVO DE CERTIFICACIONES - VERSION PLAYWRIGHT
+=============================================================
+Script batch que procesa TODAS las certificaciones usando Playwright:
 1. Escanea todas las certificaciones en AyN, RyC y Transversal
 2. Extrae el numero de HU de cada archivo
 3. Busca las carpetas en Drive y extrae links de CPs
 4. Actualiza cada Excel con los links correspondientes
 5. Genera reporte final de resultados
 
-Uso: py procesar_certificaciones_masivo.py
+Uso: py procesar_certificaciones_playwright.py
 """
 
 import sys
@@ -19,31 +19,15 @@ import json
 import win32com.client
 from pathlib import Path
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
-import pyautogui
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 # Configurar encoding
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Importar configuracion
-from configuracion_drive import (
-    DRIVE_ROOT_URL,
-    TIEMPO_CARGA_PAGINA,
-    TIEMPO_SCROLL,
-    TIEMPO_BUSQUEDA,
-    MAX_INTENTOS_SCROLL,
-    INTENTOS_SIN_CAMBIO,
-    get_chrome_options,
-    verificar_sesion_guardada,
-    BASE_DIR
-)
-
 # Obtener la raiz del proyecto AutCert
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.resolve()
 
 # Agregar al path
@@ -60,17 +44,32 @@ from config_paths import CERTIFICACIONES_ROOT_STR
 RUTA_CERTIFICACIONES = CERTIFICACIONES_ROOT_STR
 CATEGORIAS = ['AyN', 'RyC', 'Transversal']
 
+# URL raiz de Drive
+DRIVE_ROOT_URL = "https://drive.google.com/drive/folders/1LOxZl_LY40jx-aq567TrWiSOo_QrO67S"
+
+# Directorio para datos de usuario de Playwright (sesion persistente)
+PLAYWRIGHT_USER_DATA = os.path.join(BASE_DIR, "datos", "cache", "playwright_profile")
+
 # Archivo de reporte
 REPORTE_DIR = os.path.join(BASE_DIR, "datos", "reportes")
 os.makedirs(REPORTE_DIR, exist_ok=True)
+os.makedirs(PLAYWRIGHT_USER_DATA, exist_ok=True)
+
+# Tiempos
+TIEMPO_CARGA_PAGINA = 3000  # ms
+TIEMPO_SCROLL = 800  # ms
+TIEMPO_BUSQUEDA = 4000  # ms
 
 # ============================================
 # CLASE PRINCIPAL
 # ============================================
 
-class ProcesadorMasivo:
+class ProcesadorMasivoPlaywright:
     def __init__(self):
-        self.driver = None
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
         self.resultados = []
         self.errores = []
         self.procesadas = 0
@@ -105,7 +104,6 @@ class ProcesadorMasivo:
 
             for archivo in os.listdir(ruta_cat):
                 if archivo.startswith("Certificacion_QA_") and archivo.endswith(".xlsx"):
-                    # Extraer numero de HU
                     match = re.search(r'Certificacion_QA_(\d+)\.xlsx', archivo)
                     if match:
                         numero_hu = match.group(1)
@@ -117,157 +115,169 @@ class ProcesadorMasivo:
                             'ruta': ruta_completa
                         })
 
-        # Ordenar por numero de HU
         certificaciones.sort(key=lambda x: int(x['numero_hu']))
-
         self.log(f"Encontradas {len(certificaciones)} certificaciones")
         return certificaciones
 
     def iniciar_navegador(self):
-        """Inicia el navegador Chrome"""
-        self.log("Iniciando Chrome...")
-        chrome_options = get_chrome_options()
-        self.driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=chrome_options
+        """Inicia Playwright con Chromium"""
+        self.log("Iniciando Playwright...")
+        self.playwright = sync_playwright().start()
+
+        # Usar contexto persistente para mantener la sesion
+        self.context = self.playwright.chromium.launch_persistent_context(
+            user_data_dir=PLAYWRIGHT_USER_DATA,
+            headless=False,
+            viewport={'width': 1280, 'height': 900},
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox',
+                '--disable-dev-shm-usage'
+            ]
         )
-        self.log("Chrome iniciado", "OK")
+
+        self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+        self.log("Playwright iniciado", "OK")
 
     def cerrar_navegador(self):
         """Cierra el navegador"""
-        if self.driver:
-            self.driver.quit()
-            self.log("Chrome cerrado", "OK")
+        if self.context:
+            self.context.close()
+        if self.playwright:
+            self.playwright.stop()
+        self.log("Playwright cerrado", "OK")
 
     def navegar_a_drive(self):
         """Navega a la URL raiz de Drive"""
-        self.log("Navegando a Google Drive...")
-        self.driver.get(DRIVE_ROOT_URL)
-        time.sleep(TIEMPO_CARGA_PAGINA)
-
-    def scroll_hasta_abajo(self):
-        """Hace scroll hasta el final del contenedor .PEfnhb"""
-        try:
-            container = self.driver.execute_script("return document.querySelector('.PEfnhb');")
-            if container:
-                self.driver.execute_script(
-                    "arguments[0].scrollTop = arguments[0].scrollHeight;",
-                    container
-                )
-                return True
-        except:
-            pass
-        return False
-
-    def scroll_arriba(self):
-        """Vuelve al inicio del contenedor .PEfnhb"""
-        try:
-            container = self.driver.execute_script("return document.querySelector('.PEfnhb');")
-            if container:
-                self.driver.execute_script("arguments[0].scrollTop = 0;", container)
-                return True
-        except:
-            pass
-        return False
+        self.page.goto(DRIVE_ROOT_URL)
+        self.page.wait_for_timeout(TIEMPO_CARGA_PAGINA)
 
     def scroll_cargar_todo(self, total_esperado=0, max_intentos=50):
         """
-        Scroll para cargar todos los elementos en Google Drive.
-        Usa JavaScript directo en el contenedor .PEfnhb
+        Scroll incremental para cargar todos los elementos.
+        Implementa: seleccion de contenedor, forzar foco, scroll incremental, validacion.
         """
-        elementos_anteriores = 0
-        intentos_sin_cambio = 0
-        max_sin_cambio = 10
+        try:
+            # 1. Seleccionar el contenedor .PEfnhb
+            container = self.page.locator('.PEfnhb')
+            container.wait_for(state='visible', timeout=10000)
 
-        for i in range(max_intentos):
-            # Scroll hasta abajo usando el metodo que funciona
-            self.scroll_hasta_abajo()
+            # 2. Forzar foco con hover y click
+            container.hover()
+            container.click(force=True)
+            self.page.wait_for_timeout(500)
 
-            time.sleep(TIEMPO_SCROLL)
+            # 3. Scroll incremental
+            previous_height = 0
+            elementos_anteriores = 0
+            intentos_sin_cambio = 0
+            max_sin_cambio = 10
 
-            # Contar elementos con data-tooltip que contengan "CP"
-            elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
-            elementos_cp = [e for e in elementos if 'CP' in (e.get_attribute('data-tooltip') or '')]
-            elementos_actuales = len(elementos_cp)
+            for i in range(max_intentos):
+                # Obtener altura actual del scroll
+                current_height = container.evaluate("el => el.scrollHeight")
 
-            # Si tenemos un objetivo y lo alcanzamos, terminamos
-            if total_esperado > 0 and elementos_actuales >= total_esperado:
-                break
+                # Hacer scroll incremental
+                container.evaluate("el => el.scrollBy(0, 500)")
 
-            if elementos_actuales == elementos_anteriores:
-                intentos_sin_cambio += 1
-                if total_esperado == 0 and intentos_sin_cambio >= max_sin_cambio:
+                # Esperar carga lazy
+                self.page.wait_for_timeout(TIEMPO_SCROLL)
+
+                # 4. Validacion - verificar scrollTop
+                scroll_top = container.evaluate("el => el.scrollTop")
+
+                # Contar CPs cargados
+                elementos = self.page.locator('[data-tooltip*="CP"][data-tooltip*="Carpeta"]')
+                elementos_actuales = elementos.count()
+
+                # Si alcanzamos el objetivo, terminar
+                if total_esperado > 0 and elementos_actuales >= total_esperado:
                     break
-                if total_esperado > 0 and intentos_sin_cambio >= (max_sin_cambio * 2):
-                    break
-            else:
-                intentos_sin_cambio = 0
 
-            elementos_anteriores = elementos_actuales
+                # Verificar si hay cambios
+                if current_height == previous_height and elementos_actuales == elementos_anteriores:
+                    intentos_sin_cambio += 1
+                    if intentos_sin_cambio >= max_sin_cambio:
+                        break
+                else:
+                    intentos_sin_cambio = 0
 
-        # Volver arriba
-        self.scroll_arriba()
-        time.sleep(0.5)
+                previous_height = current_height
+                elementos_anteriores = elementos_actuales
 
-        return elementos_actuales
+            # Volver arriba
+            container.evaluate("el => el.scrollTop = 0")
+            self.page.wait_for_timeout(500)
+
+            return elementos_actuales
+
+        except Exception as e:
+            self.log(f"Error en scroll: {e}", "WARN")
+            return 0
 
     def buscar_y_entrar_carpeta_hu(self, numero_hu):
-        """Busca la carpeta de una HU en Drive y entra haciendo doble clic"""
-        from selenium.webdriver.common.action_chains import ActionChains
-
+        """Busca la carpeta de una HU en Drive y entra"""
         try:
             # Buscar caja de busqueda
-            search_box = None
-            selectores = [
-                ("xpath", "//input[@aria-label='Buscar en Drive']"),
-                ("xpath", "//input[@placeholder='Buscar en Drive']"),
-                ("css", "input[aria-label='Buscar en Drive']"),
-                ("css", "input[type='search']"),
-            ]
+            search_box = self.page.locator('input[aria-label="Buscar en Drive"]')
+            if not search_box.is_visible():
+                search_box = self.page.locator('input[type="search"]')
 
-            for tipo, selector in selectores:
-                try:
-                    if tipo == "xpath":
-                        search_box = self.driver.find_element(By.XPATH, selector)
-                    else:
-                        search_box = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    break
-                except:
-                    continue
-
-            if not search_box:
-                return False
-
-            # Limpiar y buscar
             search_box.click()
-            time.sleep(0.3)
-            search_box.clear()
-            time.sleep(0.2)
-            search_box.send_keys(numero_hu)
-            time.sleep(0.5)
-            search_box.send_keys(Keys.RETURN)
-            time.sleep(TIEMPO_BUSQUEDA)
+            self.page.wait_for_timeout(300)
+            search_box.fill('')
+            self.page.wait_for_timeout(200)
+            search_box.fill(numero_hu)
+            self.page.wait_for_timeout(500)
+            search_box.press('Enter')
+            self.page.wait_for_timeout(TIEMPO_BUSQUEDA)
 
-            # Buscar carpeta y hacer doble clic para entrar
-            elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
+            # Buscar carpeta con el nombre exacto
+            carpeta_selector = f'[data-tooltip*="Evidencias HU{numero_hu}"][data-tooltip*="Carpeta"]'
+            carpeta = self.page.locator(carpeta_selector).first
 
-            for elem in elementos:
-                try:
-                    tooltip = elem.get_attribute('data-tooltip')
-                    if tooltip and f"Evidencias HU{numero_hu}" in tooltip and "Carpeta" in tooltip:
-                        # Hacer doble clic para entrar a la carpeta
-                        actions = ActionChains(self.driver)
-                        actions.double_click(elem).perform()
-                        time.sleep(TIEMPO_CARGA_PAGINA + 2)
-
-                        return True
-                except:
-                    continue
+            if carpeta.is_visible():
+                # Doble clic para entrar
+                carpeta.dblclick()
+                self.page.wait_for_timeout(TIEMPO_CARGA_PAGINA + 2000)
+                return True
 
             return False
 
         except Exception as e:
             return False
+
+    def extraer_cps_de_carpeta(self, total_esperado=0):
+        """Extrae todas las carpetas CP con sus links"""
+        # Scroll para cargar todos los CPs
+        self.scroll_cargar_todo(total_esperado=total_esperado, max_intentos=50)
+        self.page.wait_for_timeout(1000)
+
+        # Segundo pase para asegurar
+        self.scroll_cargar_todo(total_esperado=total_esperado, max_intentos=20)
+        self.page.wait_for_timeout(500)
+
+        # Extraer CPs
+        cps = {}
+        elementos = self.page.locator('[data-tooltip*="CP"][data-tooltip*="Carpeta"]')
+        count = elementos.count()
+
+        for i in range(count):
+            try:
+                elem = elementos.nth(i)
+                tooltip = elem.get_attribute('data-tooltip')
+                data_id = elem.get_attribute('data-id')
+
+                if tooltip and data_id:
+                    match = re.search(r'CP\s*(\d+)', tooltip, re.IGNORECASE)
+                    if match:
+                        numero_cp = match.group(1)
+                        link = f"https://drive.google.com/drive/folders/{data_id}"
+                        cps[numero_cp] = link
+            except:
+                continue
+
+        return cps
 
     def contar_tcs_en_excel(self, ruta_excel):
         """Cuenta cuantos Test Cases hay en el Excel"""
@@ -304,7 +314,6 @@ class ProcesadorMasivo:
 
             workbook.Close(False)
             excel.Quit()
-
             return total_tcs
 
         except Exception as e:
@@ -314,37 +323,6 @@ class ProcesadorMasivo:
             except:
                 pass
             return 0
-
-    def extraer_cps_de_carpeta(self, total_esperado=0):
-        """Extrae todas las carpetas CP con sus links"""
-        # Scroll hasta encontrar todos los CPs esperados
-        self.scroll_cargar_todo(total_esperado=total_esperado, max_intentos=50)
-
-        # Esperar a que se estabilice
-        time.sleep(2)
-
-        # Segundo pase de scroll para asegurar
-        self.scroll_cargar_todo(total_esperado=total_esperado, max_intentos=20)
-        time.sleep(1)
-
-        elementos = self.driver.find_elements(By.CSS_SELECTOR, "[data-tooltip]")
-        cps = {}
-
-        for elem in elementos:
-            try:
-                tooltip = elem.get_attribute('data-tooltip')
-                if tooltip and 'CP' in tooltip and 'Carpeta' in tooltip:
-                    match = re.search(r'CP\s*(\d+)', tooltip, re.IGNORECASE)
-                    if match:
-                        numero_cp = match.group(1)
-                        data_id = elem.get_attribute("data-id")
-                        if data_id:
-                            link = f"https://drive.google.com/drive/folders/{data_id}"
-                            cps[numero_cp] = link
-            except:
-                continue
-
-        return cps
 
     def actualizar_excel(self, ruta_excel, cps_links, numero_hu):
         """Actualiza el Excel con los links"""
@@ -414,13 +392,13 @@ class ProcesadorMasivo:
         numero_hu = cert['numero_hu']
 
         try:
-            # Primero contar cuantos TCs tiene el Excel para saber cuantos CPs buscar
+            # Contar TCs del Excel
             total_tcs = self.contar_tcs_en_excel(cert['ruta'])
 
-            # Volver a Drive raiz para buscar
+            # Navegar a Drive
             self.navegar_a_drive()
 
-            # Buscar carpeta HU y entrar con doble clic
+            # Buscar y entrar a carpeta HU
             entro = self.buscar_y_entrar_carpeta_hu(numero_hu)
 
             if not entro:
@@ -432,7 +410,7 @@ class ProcesadorMasivo:
                     'links_agregados': 0
                 }
 
-            # Ya estamos dentro de la carpeta, extraer CPs (pasando el total esperado)
+            # Extraer CPs
             cps_links = self.extraer_cps_de_carpeta(total_esperado=total_tcs)
 
             if len(cps_links) == 0:
@@ -477,7 +455,7 @@ class ProcesadorMasivo:
             }
 
     def generar_reporte(self):
-        """Genera reporte final en JSON y consola"""
+        """Genera reporte final en JSON"""
         duracion = datetime.now() - self.inicio
 
         reporte = {
@@ -490,7 +468,6 @@ class ProcesadorMasivo:
             'resultados': self.resultados
         }
 
-        # Guardar JSON
         nombre_reporte = f"reporte_masivo_{self.inicio.strftime('%Y%m%d_%H%M%S')}.json"
         ruta_reporte = os.path.join(REPORTE_DIR, nombre_reporte)
 
@@ -500,7 +477,7 @@ class ProcesadorMasivo:
         return ruta_reporte
 
     def mostrar_resumen(self):
-        """Muestra resumen final en consola"""
+        """Muestra resumen final"""
         duracion = datetime.now() - self.inicio
 
         print("\n")
@@ -513,45 +490,38 @@ class ProcesadorMasivo:
         print(f"  Duracion:                         {str(duracion).split('.')[0]}")
         print("=" * 70)
 
-        # Desglose por estado
         estados = {}
         for r in self.resultados:
             estado = r['estado']
-            if estado not in estados:
-                estados[estado] = 0
-            estados[estado] += 1
+            estados[estado] = estados.get(estado, 0) + 1
 
         print("\n  Desglose por estado:")
         for estado, cantidad in sorted(estados.items()):
             simbolo = "+" if estado == "OK" else "!"
             print(f"    [{simbolo}] {estado}: {cantidad}")
 
-        # Mostrar errores si hay
         errores = [r for r in self.resultados if r['estado'] not in ['OK', 'SIN_CPS']]
         if errores:
             print("\n  Certificaciones con problemas:")
-            for e in errores[:10]:  # Mostrar max 10
+            for e in errores[:10]:
                 print(f"    - HU{e['numero_hu']}: {e['mensaje'][:50]}")
             if len(errores) > 10:
                 print(f"    ... y {len(errores) - 10} mas")
 
         print("=" * 70)
 
+    def verificar_sesion(self):
+        """Verifica si hay sesion de Google guardada"""
+        # Verificar si existe el directorio de perfil con datos
+        cookies_path = os.path.join(PLAYWRIGHT_USER_DATA, "Default", "Cookies")
+        return os.path.exists(cookies_path) or os.path.exists(PLAYWRIGHT_USER_DATA)
+
     def ejecutar(self):
         """Ejecuta el procesamiento masivo"""
         print("=" * 70)
-        print("       PROCESAMIENTO MASIVO DE CERTIFICACIONES")
+        print("   PROCESAMIENTO MASIVO DE CERTIFICACIONES (PLAYWRIGHT)")
         print("=" * 70)
         print()
-
-        # Verificar sesion
-        if not verificar_sesion_guardada():
-            print("[!] NO SE DETECTO SESION GUARDADA")
-            print("    Por favor ejecuta primero: 1_Iniciar_Sesion.bat")
-            print()
-            respuesta = input("    Continuar de todas formas? (s/n): ").strip().lower()
-            if respuesta != 's':
-                return
 
         # Escanear certificaciones
         certificaciones = self.escanear_certificaciones()
@@ -564,7 +534,6 @@ class ProcesadorMasivo:
         print(f"  Se procesaran {len(certificaciones)} certificaciones")
         print()
 
-        # Mostrar preview
         print("  Preview de certificaciones:")
         for cat in CATEGORIAS:
             cantidad = len([c for c in certificaciones if c['categoria'] == cat])
@@ -579,10 +548,20 @@ class ProcesadorMasivo:
         print()
 
         try:
-            # Iniciar navegador
             self.iniciar_navegador()
 
-            # Procesar cada certificacion
+            # Verificar sesion
+            self.log("Navegando a Drive para verificar sesion...")
+            self.navegar_a_drive()
+            self.page.wait_for_timeout(3000)
+
+            # Verificar si estamos logueados
+            if "accounts.google.com" in self.page.url:
+                self.log("Necesitas iniciar sesion en Google", "WARN")
+                print("\n  Por favor inicia sesion en la ventana del navegador...")
+                print("  Tienes 120 segundos para hacerlo.")
+                self.page.wait_for_timeout(120000)
+
             total = len(certificaciones)
 
             for i, cert in enumerate(certificaciones, 1):
@@ -597,10 +576,9 @@ class ProcesadorMasivo:
                 else:
                     self.fallidas += 1
 
-                # Pausa breve entre certificaciones
-                time.sleep(1)
+                self.page.wait_for_timeout(1000)
 
-            print()  # Nueva linea despues de barra de progreso
+            print()
 
         except KeyboardInterrupt:
             self.log("Proceso interrumpido por usuario", "WARN")
@@ -611,10 +589,7 @@ class ProcesadorMasivo:
         finally:
             self.cerrar_navegador()
 
-        # Generar reporte
         ruta_reporte = self.generar_reporte()
-
-        # Mostrar resumen
         self.mostrar_resumen()
 
         print(f"\n  Reporte guardado en: {ruta_reporte}")
@@ -626,7 +601,7 @@ class ProcesadorMasivo:
 # ============================================
 
 def main():
-    procesador = ProcesadorMasivo()
+    procesador = ProcesadorMasivoPlaywright()
     procesador.ejecutar()
     print("\nPresiona ENTER para salir...")
     input()
