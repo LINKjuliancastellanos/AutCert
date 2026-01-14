@@ -3,8 +3,11 @@ RENOMBRAR EVIDENCIAS - AutCert
 ================================
 Renombra todas las evidencias capturadas según el título del Test Case en data.csv
 
-Estructura actual:   Evidencias/{Categoria}/HU{id}/CP{tc_id}/TC{tc_id}_History_{timestamp}.png
-Estructura renombrada: Evidencias/{Categoria}/HU{id}/CP{tc_id}/{Title}.png
+Estructura actual:   Evidencias/{Categoria}/HU{id}/CP{tc_id}/TC{tc_id}_History_{timestamp}.{ext}
+Estructura renombrada: Evidencias/{Categoria}/HU{id}/CP{tc_id}/{Title}.{ext}
+
+Soporta imágenes (.png, .jpg, .jpeg, .gif, .bmp) y videos (.mp4, .avi, .mov, .mkv, .webm)
+Si hay múltiples evidencias del mismo TC, se agregan sufijos: {Title}_1.ext, {Title}_2.ext, etc.
 
 Uso: py renombrar_evidencias.py
 """
@@ -32,6 +35,11 @@ from config_paths import CSV_PATH_STR, EVIDENCIAS_ROOT_STR, LOG_RENOMBRADO_STR
 CSV_PATH = CSV_PATH_STR
 EVIDENCIAS_ROOT = EVIDENCIAS_ROOT_STR
 LOG_PATH = LOG_RENOMBRADO_STR
+
+# Extensiones de archivos soportados para renombrado
+EXTENSIONES_IMAGEN = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+EXTENSIONES_VIDEO = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv', '.m4v'}
+EXTENSIONES_SOPORTADAS = EXTENSIONES_IMAGEN | EXTENSIONES_VIDEO
 
 def log_mensaje(mensaje, archivo=True, consola=True):
     """Registra mensaje en log y/o consola"""
@@ -104,7 +112,8 @@ def cargar_titulos_test_cases():
 
 def encontrar_archivos_evidencias():
     """
-    Escanea la carpeta Evidencias/ y encuentra todos los archivos .png
+    Escanea la carpeta Evidencias/ y encuentra todos los archivos de evidencia
+    (imágenes y videos) soportados.
     Retorna lista de tuplas: (ruta_completa, tc_id, carpeta_padre)
     """
     archivos = []
@@ -116,6 +125,10 @@ def encontrar_archivos_evidencias():
     # Patrón para detectar carpetas CP{tc_id}
     patron_carpeta_cp = re.compile(r'CP(\d+)$')
 
+    # Contadores por tipo
+    imagenes_encontradas = 0
+    videos_encontrados = 0
+
     # Recorrer toda la estructura de Evidencias/
     for root, dirs, files in os.walk(EVIDENCIAS_ROOT):
         # Verificar si estamos en una carpeta CP{tc_id}
@@ -125,18 +138,26 @@ def encontrar_archivos_evidencias():
         if match:
             tc_id = match.group(1)
 
-            # Buscar archivos .png en esta carpeta
+            # Buscar archivos de evidencia (imágenes y videos) en esta carpeta
             for file in files:
-                if file.lower().endswith('.png'):
+                extension = os.path.splitext(file)[1].lower()
+                if extension in EXTENSIONES_SOPORTADAS:
                     ruta_completa = os.path.join(root, file)
                     archivos.append((ruta_completa, tc_id, root))
 
-    log_mensaje(f"✓ Encontrados {len(archivos)} archivos de evidencia")
+                    # Contar por tipo
+                    if extension in EXTENSIONES_IMAGEN:
+                        imagenes_encontradas += 1
+                    elif extension in EXTENSIONES_VIDEO:
+                        videos_encontrados += 1
+
+    log_mensaje(f"✓ Encontrados {len(archivos)} archivos de evidencia ({imagenes_encontradas} imágenes, {videos_encontrados} videos)")
     return archivos
 
 def renombrar_evidencia(ruta_actual, tc_id, carpeta_padre, titulos):
     """
     Renombra un archivo de evidencia según el título del TC
+    Preserva la extensión original del archivo (soporta imágenes y videos)
     Retorna: (exito, mensaje)
     """
     # Verificar si existe el título para este TC
@@ -146,8 +167,12 @@ def renombrar_evidencia(ruta_actual, tc_id, carpeta_padre, titulos):
     titulo_original = titulos[tc_id]
     titulo_limpio = limpiar_nombre_archivo(titulo_original)
 
-    # Construir nuevo nombre
-    nuevo_nombre = f"{titulo_limpio}.png"
+    # Obtener la extensión original del archivo
+    nombre_actual = os.path.basename(ruta_actual)
+    extension_original = os.path.splitext(nombre_actual)[1].lower()
+
+    # Construir nuevo nombre preservando la extensión original
+    nuevo_nombre = f"{titulo_limpio}{extension_original}"
     nueva_ruta = os.path.join(carpeta_padre, nuevo_nombre)
 
     # Verificar si ya existe un archivo con ese nombre
@@ -157,11 +182,10 @@ def renombrar_evidencia(ruta_actual, tc_id, carpeta_padre, titulos):
             return (True, "Ya renombrado")
         else:
             # Existe otro archivo con el mismo nombre
-            # Agregar sufijo numérico
-            base, ext = os.path.splitext(nuevo_nombre)
+            # Agregar sufijo numérico (_1, _2, etc.)
             contador = 1
             while os.path.exists(nueva_ruta):
-                nuevo_nombre = f"{base}_{contador}{ext}"
+                nuevo_nombre = f"{titulo_limpio}_{contador}{extension_original}"
                 nueva_ruta = os.path.join(carpeta_padre, nuevo_nombre)
                 contador += 1
 
@@ -175,6 +199,7 @@ def renombrar_evidencia(ruta_actual, tc_id, carpeta_padre, titulos):
 def generar_reporte_previo(archivos, titulos):
     """
     Genera un reporte de lo que se va a renombrar antes de ejecutar
+    Considera imágenes y videos con sus extensiones originales
     """
     print("\n" + "="*80)
     print("VISTA PREVIA DE RENOMBRADO")
@@ -183,23 +208,42 @@ def generar_reporte_previo(archivos, titulos):
     total_renombrar = 0
     total_sin_titulo = 0
     total_ya_renombrados = 0
+    imagenes_renombrar = 0
+    videos_renombrar = 0
+
+    # Agrupar archivos por TC para predecir sufijos numéricos
+    archivos_por_tc = {}
+    for ruta_actual, tc_id, carpeta_padre in archivos:
+        if tc_id not in archivos_por_tc:
+            archivos_por_tc[tc_id] = []
+        archivos_por_tc[tc_id].append((ruta_actual, carpeta_padre))
 
     for ruta_actual, tc_id, carpeta_padre in archivos:
         nombre_actual = os.path.basename(ruta_actual)
+        extension_original = os.path.splitext(nombre_actual)[1].lower()
 
         if tc_id in titulos:
             titulo_limpio = limpiar_nombre_archivo(titulos[tc_id])
-            nuevo_nombre = f"{titulo_limpio}.png"
+            nuevo_nombre_base = f"{titulo_limpio}{extension_original}"
 
-            # Verificar si ya tiene el nombre correcto
-            if nombre_actual == nuevo_nombre:
+            # Verificar si ya tiene el nombre correcto (considerando posibles sufijos)
+            nombre_sin_ext = os.path.splitext(nombre_actual)[0]
+            if nombre_sin_ext == titulo_limpio or nombre_sin_ext.startswith(f"{titulo_limpio}_"):
                 total_ya_renombrados += 1
             else:
                 total_renombrar += 1
+
+                # Contar por tipo
+                if extension_original in EXTENSIONES_IMAGEN:
+                    imagenes_renombrar += 1
+                elif extension_original in EXTENSIONES_VIDEO:
+                    videos_renombrar += 1
+
                 if total_renombrar <= 10:  # Mostrar solo los primeros 10
-                    print(f"\nTC {tc_id}:")
+                    tipo = "IMG" if extension_original in EXTENSIONES_IMAGEN else "VID"
+                    print(f"\n[{tipo}] TC {tc_id}:")
                     print(f"  Actual: {nombre_actual}")
-                    print(f"  Nuevo:  {nuevo_nombre}")
+                    print(f"  Nuevo:  {nuevo_nombre_base}")
         else:
             total_sin_titulo += 1
 
@@ -211,6 +255,8 @@ def generar_reporte_previo(archivos, titulos):
     print("="*80)
     print(f"  Total archivos encontrados: {len(archivos)}")
     print(f"  ✓ A renombrar: {total_renombrar}")
+    print(f"      - Imágenes: {imagenes_renombrar}")
+    print(f"      - Videos: {videos_renombrar}")
     print(f"  ⚠ Sin título en CSV: {total_sin_titulo}")
     print(f"  ℹ Ya renombrados correctamente: {total_ya_renombrados}")
 
