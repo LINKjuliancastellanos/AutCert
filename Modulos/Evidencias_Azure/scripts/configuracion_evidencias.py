@@ -53,9 +53,9 @@ HISTORY_TAB_XPATH = '/html/body/div[3]/div/div/div/div/div/div[2]/div[1]/div/div
 
 # Tiempos de espera (ajusta según la velocidad de tu PC/internet)
 TIEMPO_INICIAL_LOGIN = 45  # Segundos para iniciar sesión la primera vez en Azure
-TIEMPO_CARGA_PAGINA = 8    # Segundos después de navegar a una página
-TIEMPO_ESPERA_CLICK = 3    # Segundos después de hacer click
-TIEMPO_ESPERA_SCREENSHOT = 2  # Segundos antes de tomar screenshot
+TIEMPO_CARGA_PAGINA = 3    # Segundos después de navegar a una página (ahora usa WebDriverWait)
+TIEMPO_ESPERA_CLICK = 1    # Segundos después de hacer click
+TIEMPO_ESPERA_SCREENSHOT = 1  # Segundos antes de tomar screenshot (render final)
 
 # ============================================
 # CONFIGURACIÓN DE CHROME

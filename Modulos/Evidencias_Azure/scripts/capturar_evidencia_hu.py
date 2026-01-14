@@ -16,6 +16,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 if sys.platform == 'win32':
@@ -84,64 +85,40 @@ def obtener_tcs_de_hu(numero_hu):
         log(f"✗ Error al leer CSV: {e}")
         return []
 
-def capturar_evidencia_tc(driver, tc_id, carpeta_destino):
-    """Captura evidencia de un Test Case"""
+def capturar_evidencia_tc(driver, tc_id, carpeta_destino, wait):
+    """Captura evidencia de un Test Case (optimizado)"""
     print(f"\n📸 TC {tc_id}...")
 
     try:
         url = f"{AZURE_DEVOPS_BASE_URL}{tc_id}"
         driver.get(url)
 
-        # Esperar a que la página cargue COMPLETAMENTE
-        time.sleep(TIEMPO_CARGA_PAGINA)
-
-        # Esperar explícitamente a que document.readyState sea complete
-        for _ in range(20):
-            estado = driver.execute_script("return document.readyState")
-            if estado == "complete":
-                break
-            time.sleep(0.5)
-
-        # Espera adicional para render de tabs
-        time.sleep(2)
+        # Esperar a que el tab History esté presente (indica que la página cargó)
+        history_selector = "#__bolt-tab-Agile-Test-Case-System_History"
+        try:
+            history_tab = wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, history_selector))
+            )
+        except:
+            log(f"✗ No se encontró tab de History")
+            return False
 
         os.makedirs(carpeta_destino, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Buscar tab History con querySelector (más confiable)
-        history_tab = driver.execute_script(
-            'return document.querySelector("#__bolt-tab-Agile-Test-Case-System_History > span > span > span")'
-        )
+        # Click en History usando JavaScript (más confiable)
+        driver.execute_script("arguments[0].click();", history_tab)
 
-        if not history_tab:
-            log(f"✗ No se encontró tab de History")
-            return False
-
-        # Click en History
-        driver.execute_script("arguments[0].scrollIntoView(true);", history_tab)
-        time.sleep(0.5)
-
+        # Esperar a que el contenido de History cargue
+        # Buscamos un elemento que solo aparece en la vista de History
         try:
-            history_tab.click()
+            wait.until(lambda d: d.execute_script(
+                'return document.querySelector(".work-item-form-page") !== null'
+            ))
         except:
-            driver.execute_script("arguments[0].click();", history_tab)
+            pass  # Continuar aunque no encuentre el selector específico
 
-        # CRÍTICO: Esperar a que termine la navegación del click
-        # Azure cambia la URL o el contenido al hacer click en History
-        time.sleep(2)  # Espera inicial
-
-        # Esperar hasta que el navegador termine de procesar
-        for _ in range(10):
-            try:
-                # Verificar si hay algún elemento de carga activo
-                estado = driver.execute_script("return document.readyState")
-                if estado == "complete":
-                    break
-            except:
-                pass
-            time.sleep(0.3)
-
-        # Espera adicional para render completo
+        # Pequeña espera para render final (reducida)
         time.sleep(TIEMPO_ESPERA_SCREENSHOT)
 
         # Screenshot
@@ -190,10 +167,16 @@ def main():
 
     chrome_options = get_chrome_options()
     print(f"\n🌐 Iniciando Chrome...")
+
+    # Instalar driver una vez y cachear
+    driver_path = ChromeDriverManager().install()
     driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
+        service=Service(driver_path),
         options=chrome_options
     )
+
+    # WebDriverWait reutilizable (timeout de 15s máximo)
+    wait = WebDriverWait(driver, 15)
 
     try:
         exitosos = 0
@@ -203,7 +186,7 @@ def main():
             print(f"\n[{i}/{len(tcs)}] Procesando TC {tc_id}...")
             carpeta_tc = os.path.join(EVIDENCIAS_BASE, f"HU{numero_hu}", f"CP{tc_id}")
 
-            if capturar_evidencia_tc(driver, tc_id, carpeta_tc):
+            if capturar_evidencia_tc(driver, tc_id, carpeta_tc, wait):
                 exitosos += 1
             else:
                 fallidos += 1

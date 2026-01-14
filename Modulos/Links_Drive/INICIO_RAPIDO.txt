@@ -34,7 +34,7 @@ WEB SCRAPING DE GOOGLE DRIVE - INICIO RÁPIDO
 
 
 ================================================================================
-💻 USO NORMAL
+💻 USO NORMAL (UNA HU)
 ================================================================================
 
 Para completar una certificación de HU:
@@ -51,11 +51,34 @@ Para completar una certificación de HU:
 
 
 ================================================================================
+🚀 PROCESAMIENTO MASIVO (TODAS LAS HUs)
+================================================================================
+
+Para procesar TODAS las certificaciones de una vez:
+
+1. OPCIONAL: Ejecutar: 4_Verificar_Estado.bat
+   → Muestra cuántas certificaciones tienen links y cuántas faltan
+
+2. Ejecutar: 3_Procesar_Masivo.bat
+
+3. El script automáticamente:
+   ✓ Escanea TODAS las certificaciones en AyN, RyC y Transversal
+   ✓ Procesa cada una secuencialmente
+   ✓ Muestra barra de progreso en tiempo real
+   ✓ Genera reporte JSON al finalizar
+
+4. OPCIONAL: Ejecutar: 4_Verificar_Estado.bat
+   → Verifica cuántas quedaron completas después del proceso
+
+
+================================================================================
 📁 ARCHIVOS PRINCIPALES
 ================================================================================
 
 1_Iniciar_Sesion.bat         → Guardar sesión (ejecutar 1 vez - 120 seg)
-2_Completar_HU.bat           → Completar certificación de HU
+2_Completar_HU.bat           → Completar certificación de UNA HU
+3_Procesar_Masivo.bat        → Procesar TODAS las certificaciones (NUEVO)
+4_Verificar_Estado.bat       → Ver estado de completitud (NUEVO)
 LIMPIAR_PERFIL_CHROME.bat    → Limpiar perfil si hay problemas
 INICIO_RAPIDO.txt            → Esta guía rápida
 requirements.txt             → Dependencias de Python
@@ -143,5 +166,5 @@ Para soporte técnico o modificaciones:
 
 
 Fecha: 2026-01-13
-Versión: 2.0 - Modo Aislado
+Versión: 3.0 - Procesamiento Masivo
 ================================================================================
